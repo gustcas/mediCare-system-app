@@ -1,0 +1,842 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHERS
+}
+
+enum BloodType {
+  A_POS
+  A_NEG
+  B_POS
+  B_NEG
+  AB_POS
+  AB_NEG
+  O_POS
+  O_NEG
+}
+
+enum DocumentType {
+  DNI
+  PASSPORT
+  CE
+  RUC
+  OTHER
+}
+
+enum AppType {
+  VIDEO
+  IN_PERSON
+}
+
+enum AppStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED_BY_PATIENT
+  CANCELLED_BY_DOCTOR
+  NO_SHOW
+}
+
+enum AdmStatus {
+  ADMITTED
+  DISCHARGED
+  TRANSFERRED
+}
+
+enum DocType {
+  LAB_REPORT
+  IMAGING
+  PRESCRIPTION_PDF
+  CONSENT_FORM
+  CLINICAL_SUMMARY
+  INSURANCE_DOC
+  OTHER
+}
+
+enum ResultStatus {
+  PENDING
+  AVAILABLE
+  REVIEWED
+  CANCELLED
+}
+
+enum PrescStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PlanStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum FormType {
+  ANAMNESIS
+  SATISFACTION
+  CONSENT
+  SCREENING
+  FOLLOW_UP
+}
+
+enum BillStatus {
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  INSURANCE_PENDING
+  CANCELLED
+}
+
+enum VideoProvider {
+  DAILY
+  TWILIO
+  AGORA
+  JITSI
+}
+
+enum SlLanguage {
+  LSP
+  ASL
+  BSL
+  OTHER
+}
+
+enum SlSessionStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+}
+
+enum SlSpeaker {
+  PATIENT
+  DOCTOR
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum AllergySeverity {
+  MILD
+  MODERATE
+  SEVERE
+  ANAPHYLACTIC
+}
+
+enum GoalStatus {
+  PENDING
+  IN_PROGRESS
+  ACHIEVED
+  ABANDONED
+}
+
+enum RoomType {
+  CONSULTATION
+  EMERGENCY
+  LAB
+  OPERATING
+  WARD
+  IMAGING
+}
+
+enum WardType {
+  GENERAL
+  ICU
+  PEDIATRICS
+  MATERNITY
+  ONCOLOGY
+  CARDIOLOGY
+  SURGICAL
+  PSYCHIATRY
+  OTHER
+}
+
+enum MedicationForm {
+  TABLET
+  CAPSULE
+  SYRUP
+  INJECTABLE
+  PATCH
+  DROPS
+  CREAM
+  POWDER
+  SUPPOSITORY
+  INHALER
+  OTHER
+}
+
+enum MedicationCategory {
+  ANALGESIC
+  ANTIBIOTIC
+  ANTIHYPERTENSIVE
+  ANTIDIABETIC
+  ANTIHISTAMINE
+  ANTIDEPRESSANT
+  ANXIOLYTIC
+  ANTICOAGULANT
+  BRONCHODILATOR
+  ANTIEMETIC
+  IMMUNOSUPPRESSANT
+  OTHER
+}
+
+enum LabCategory {
+  HEMATOLOGY
+  BIOCHEMISTRY
+  MICROBIOLOGY
+  IMMUNOLOGY
+  ENDOCRINOLOGY
+  TOXICOLOGY
+  URINALYSIS
+  GENETIC
+  OTHER
+}
+
+enum CarePlanItemType {
+  MEDICATION
+  EXERCISE
+  DIET
+  PROCEDURE
+  FOLLOW_UP_APPOINTMENT
+  LAB_TEST
+  MONITORING
+  EDUCATION
+  OTHER
+}
+
+enum ContactRelationship {
+  PARENT
+  SPOUSE
+  SIBLING
+  CHILD
+  GUARDIAN
+  FRIEND
+  OTHER
+}
+
+enum DoctorSpecialtyType {
+  PRIMARY
+  SUBSPECIALTY
+  CERTIFICATION
+}
+
+// ============================================================
+// LOCATIONS
+// ============================================================
+
+model Building {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  district  String?
+  city      String
+  country   String   @default("PE")
+  phone     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  rooms     Room[]
+  wards     Ward[]
+  doctorAvailabilities DoctorAvailability[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("buildings")
+}
+
+model Room {
+  id         String   @id @default(uuid())
+  buildingId String   @map("building_id")
+  name       String
+  floor      String?
+  type       RoomType
+  isActive   Boolean  @default(true) @map("is_active")
+  building   Building @relation(fields: [buildingId], references: [id])
+  appointments Appointment[]
+  admissions Admission[]
+
+  @@map("rooms")
+}
+
+model Ward {
+  id         String   @id @default(uuid())
+  buildingId String   @map("building_id")
+  name       String
+  type       WardType
+  floor      String?
+  capacity   Int?
+  isActive   Boolean  @default(true) @map("is_active")
+  building   Building @relation(fields: [buildingId], references: [id])
+  admissions Admission[]
+
+  @@map("wards")
+}
+
+// ============================================================
+// PERSONS
+// ============================================================
+
+model Specialty {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  doctorSpecialties DoctorSpecialty[]
+
+  @@map("specialties")
+}
+
+model Patient {
+  id             String        @id @default(uuid())
+  userId         String?       @unique @map("user_id")
+  firstName      String        @map("first_name")
+  lastName       String        @map("last_name")
+  documentType   DocumentType? @map("document_type")
+  documentNumber String?       @unique @map("document_number")
+  phone          String?
+  address        String?
+  dateOfBirth    DateTime      @map("date_of_birth") @db.Date
+  gender         Gender
+  bloodType      BloodType?    @map("blood_type")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  allergies         PatientAllergy[]
+  emergencyContacts EmergencyContact[]
+  appointments      Appointment[]
+  admissions        Admission[]
+  testResults       TestResult[]
+  documents         Document[]
+  prescriptions     Prescription[]
+  carePlans         CarePlan[]
+  formResponses     FormResponse[]
+  insurancePolicies InsurancePolicy[]
+  billingRecords    BillingRecord[]
+  patientDiagnoses  PatientDiagnosis[]
+
+  @@map("patients")
+}
+
+model PatientAllergy {
+  id          String          @id @default(uuid())
+  patientId   String          @map("patient_id")
+  substance   String
+  severity    AllergySeverity
+  reaction    String?
+  confirmedBy String?         @map("confirmed_by")
+  confirmedAt DateTime?       @map("confirmed_at")
+  notes       String?
+  patient     Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      Doctor?         @relation(fields: [confirmedBy], references: [id])
+
+  @@map("patient_allergies")
+}
+
+model EmergencyContact {
+  id           String              @id @default(uuid())
+  patientId    String              @map("patient_id")
+  fullName     String              @map("fullname")
+  relationship ContactRelationship
+  phone        String
+  phoneAlt     String?             @map("phone_alt")
+  isPrimary    Boolean             @default(false) @map("is_primary")
+  patient      Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("emergency_contacts")
+}
+
+model Doctor {
+  id            String   @id @default(uuid())
+  userId        String   @unique @map("user_id")
+  firstName     String?  @map("first_name")
+  lastName      String?  @map("last_name")
+  licenseNumber String   @unique @map("license_number")
+  bio           String?
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  specialties          DoctorSpecialty[]
+  availability         DoctorAvailability[]
+  appointments         Appointment[]
+  prescriptions        Prescription[]
+  carePlans            CarePlan[]
+  testResults          TestResult[]
+  patientDiagnoses     PatientDiagnosis[]
+  confirmedAllergies   PatientAllergy[]
+
+  @@map("doctors")
+}
+
+model DoctorSpecialty {
+  id          String              @id @default(uuid())
+  doctorId    String              @map("doctor_id")
+  specialtyId String              @map("specialty_id")
+  type        DoctorSpecialtyType @default(PRIMARY)
+  certifiedAt DateTime?           @map("certified_at") @db.Date
+  expiresAt   DateTime?           @map("expires_at") @db.Date
+  doctor      Doctor              @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  specialty   Specialty           @relation(fields: [specialtyId], references: [id])
+
+  @@unique([doctorId, specialtyId])
+  @@map("doctor_specialties")
+}
+
+model DoctorAvailability {
+  id         String    @id @default(uuid())
+  doctorId   String    @map("doctor_id")
+  dayOfWeek  DayOfWeek @map("day_of_week")
+  startTime  String    @map("start_time")
+  endTime    String    @map("end_time")
+  buildingId String?   @map("building_id")
+  isActive   Boolean   @default(true) @map("is_active")
+  doctor     Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  building   Building? @relation(fields: [buildingId], references: [id])
+
+  @@map("doctor_availability")
+}
+
+// ============================================================
+// APPOINTMENTS & ADMISSIONS
+// ============================================================
+
+model Appointment {
+  id          String    @id @default(uuid())
+  patientId   String    @map("patient_id")
+  doctorId    String    @map("doctor_id")
+  roomId      String?   @map("room_id")
+  scheduledAt DateTime  @map("scheduled_at")
+  endAt       DateTime  @map("end_at")
+  type        AppType
+  status      AppStatus @default(PENDING)
+  reason      String
+  slEnabled   Boolean   @default(false) @map("sl_enabled")
+  cancelReason String?  @map("cancel_reason")
+  canceledAt  DateTime? @map("canceled_at")
+  createdBy   String    @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  room         Room?         @relation(fields: [roomId], references: [id])
+  clinicalNotes ClinicalNote[]
+  admissions   Admission[]
+  testResults  TestResult[]
+  documents    Document[]
+  videoSessions VideoSession[]
+  formResponses FormResponse[]
+  billingRecords BillingRecord[]
+
+  @@map("appointments")
+}
+
+model Admission {
+  id            String    @id @default(uuid())
+  patientId     String    @map("patient_id")
+  appointmentId String?   @map("appointment_id")
+  wardId        String?   @map("ward_id")
+  roomId        String?   @map("room_id")
+  admittedAt    DateTime  @map("admitted_at")
+  dischargedAt  DateTime? @map("discharged_at")
+  reason        String
+  status        AdmStatus
+  admittedBy    String    @map("admitted_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  ward        Ward?        @relation(fields: [wardId], references: [id])
+  room        Room?        @relation(fields: [roomId], references: [id])
+
+  @@map("admissions")
+}
+
+// ============================================================
+// CLINICAL
+// ============================================================
+
+model ClinicalNote {
+  id            String    @id @default(uuid())
+  appointmentId String    @map("appointment_id")
+  subjective    String?
+  objective     String?
+  assessment    String?
+  plan          String?
+  isLocked      Boolean   @default(false) @map("is_locked")
+  lockedBy      String?   @map("locked_by")
+  lockedAt      DateTime? @map("locked_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  appointment  Appointment             @relation(fields: [appointmentId], references: [id])
+  diagnoses    ClinicalNoteDiagnosis[]
+  documents    Document[]
+  prescriptions Prescription[]
+
+  @@map("clinical_notes")
+}
+
+model DiagnosisCode {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  description String
+  category    String
+  version     String
+
+  patientDiagnoses     PatientDiagnosis[]
+  clinicalNoteDiagnoses ClinicalNoteDiagnosis[]
+
+  @@map("diagnosis_codes")
+}
+
+model PatientDiagnosis {
+  id              String    @id @default(uuid())
+  patientId       String    @map("patient_id")
+  diagnosisCodeId String    @map("diagnosis_code_id")
+  diagnosedBy     String    @map("diagnosed_by")
+  diagnosedAt     DateTime  @map("diagnosed_at")
+  resolvedAt      DateTime? @map("resolved_at")
+  notes           String?
+  patient         Patient       @relation(fields: [patientId], references: [id])
+  diagnosisCode   DiagnosisCode @relation(fields: [diagnosisCodeId], references: [id])
+  doctor          Doctor        @relation(fields: [diagnosedBy], references: [id])
+
+  @@map("patient_diagnoses")
+}
+
+model ClinicalNoteDiagnosis {
+  id              String        @id @default(uuid())
+  clinicalNoteId  String        @map("clinical_note_id")
+  diagnosisCodeId String        @map("diagnosis_code_id")
+  clinicalNote    ClinicalNote  @relation(fields: [clinicalNoteId], references: [id], onDelete: Cascade)
+  diagnosisCode   DiagnosisCode @relation(fields: [diagnosisCodeId], references: [id])
+
+  @@unique([clinicalNoteId, diagnosisCodeId])
+  @@map("clinical_note_diagnoses")
+}
+
+// ============================================================
+// LAB & DOCUMENTS
+// ============================================================
+
+model LabTest {
+  id                String      @id @default(uuid())
+  name              String
+  description       String?
+  category          LabCategory
+  unit              String?
+  referenceRangeMin Decimal?    @map("reference_range_min")
+  referenceRangeMax Decimal?    @map("reference_range_max")
+  testResults       TestResult[]
+
+  @@map("lab_tests")
+}
+
+model TestResult {
+  id            String       @id @default(uuid())
+  patientId     String       @map("patient_id")
+  labTestId     String       @map("lab_test_id")
+  orderedBy     String       @map("ordered_by")
+  appointmentId String?      @map("appointment_id")
+  status        ResultStatus @default(PENDING)
+  resultDate    DateTime?    @map("result_date")
+  values        Json?
+  notes         String?
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  labTest     LabTest      @relation(fields: [labTestId], references: [id])
+  doctor      Doctor       @relation(fields: [orderedBy], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  documents   TestResultDocument[]
+
+  @@map("test_results")
+}
+
+model Document {
+  id              String   @id @default(uuid())
+  patientId       String   @map("patient_id")
+  appointmentId   String?  @map("appointment_id")
+  clinicalNoteId  String?  @map("clinical_note_id")
+  type            DocType
+  name            String
+  fileUrl         String   @map("file_url")
+  fileSize        Int      @map("file_size")
+  mimeType        String   @map("mime_type")
+  uploadedBy      String   @map("uploaded_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  appointment  Appointment?  @relation(fields: [appointmentId], references: [id])
+  clinicalNote ClinicalNote? @relation(fields: [clinicalNoteId], references: [id])
+  testDocuments TestResultDocument[]
+
+  @@map("documents")
+}
+
+model TestResultDocument {
+  id           String     @id @default(uuid())
+  testResultId String     @map("test_result_id")
+  documentId   String     @map("document_id")
+  isPrimary    Boolean    @default(false) @map("is_primary")
+  testResult   TestResult @relation(fields: [testResultId], references: [id], onDelete: Cascade)
+  document     Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([testResultId, documentId])
+  @@map("test_result_documents")
+}
+
+// ============================================================
+// MEDICATIONS & PRESCRIPTIONS
+// ============================================================
+
+model Medication {
+  id          String   @id @default(uuid())
+  name        String
+  genericName String   @map("generic_name")
+  description String?
+  variants    MedicationVariant[]
+
+  @@map("medications")
+}
+
+model MedicationVariant {
+  id           String             @id @default(uuid())
+  medicationId String             @map("medication_id")
+  form         MedicationForm
+  strength     String
+  category     MedicationCategory
+  isActive     Boolean            @default(true) @map("is_active")
+  medication   Medication         @relation(fields: [medicationId], references: [id])
+  prescriptionItems PrescriptionItem[]
+
+  @@map("medication_variants")
+}
+
+model Prescription {
+  id             String      @id @default(uuid())
+  patientId      String      @map("patient_id")
+  doctorId       String      @map("doctor_id")
+  clinicalNoteId String?     @map("clinical_note_id")
+  issuedAt       DateTime    @map("issued_at")
+  expiresAt      DateTime    @map("expires_at")
+  status         PrescStatus @default(ACTIVE)
+  notes          String?
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  clinicalNote ClinicalNote? @relation(fields: [clinicalNoteId], references: [id])
+  items        PrescriptionItem[]
+
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id                  String            @id @default(uuid())
+  prescriptionId      String            @map("prescription_id")
+  medicationVariantId String            @map("medication_variant_id")
+  dosage              String
+  frequency           String
+  duration            String
+  instructions        String?
+  refillsLeft         Int               @default(0) @map("refills_left")
+  prescription        Prescription      @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicationVariant   MedicationVariant @relation(fields: [medicationVariantId], references: [id])
+
+  @@map("prescription_items")
+}
+
+// ============================================================
+// CARE PLANS
+// ============================================================
+
+model CarePlan {
+  id          String     @id @default(uuid())
+  patientId   String     @map("patient_id")
+  doctorId    String     @map("doctor_id")
+  title       String
+  description String?
+  startDate   DateTime   @map("start_date") @db.Date
+  endDate     DateTime?  @map("end_date") @db.Date
+  status      PlanStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  patient Patient  @relation(fields: [patientId], references: [id])
+  doctor  Doctor   @relation(fields: [doctorId], references: [id])
+  goals   CarePlanGoal[]
+  items   CarePlanItem[]
+
+  @@map("care_plans")
+}
+
+model CarePlanGoal {
+  id          String     @id @default(uuid())
+  carePlanId  String     @map("care_plan_id")
+  description String
+  status      GoalStatus @default(PENDING)
+  targetDate  DateTime?  @map("target_date") @db.Date
+  achievedAt  DateTime?  @map("achieved_at")
+  notes       String?
+  carePlan    CarePlan   @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+
+  @@map("care_plan_goals")
+}
+
+model CarePlanItem {
+  id          String           @id @default(uuid())
+  carePlanId  String           @map("care_plan_id")
+  type        CarePlanItemType
+  description String
+  frequency   String?
+  dueDate     DateTime?        @map("due_date") @db.Date
+  isCompleted Boolean          @default(false) @map("is_completed")
+  completedAt DateTime?        @map("completed_at")
+  carePlan    CarePlan         @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+
+  @@map("care_plan_items")
+}
+
+// ============================================================
+// FORMS
+// ============================================================
+
+model Form {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  type        FormType
+  questions   Json
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  responses   FormResponse[]
+
+  @@map("forms")
+}
+
+model FormResponse {
+  id            String    @id @default(uuid())
+  formId        String    @map("form_id")
+  patientId     String    @map("patient_id")
+  appointmentId String?   @map("appointment_id")
+  answers       Json
+  submittedAt   DateTime  @map("submitted_at")
+  form          Form      @relation(fields: [formId], references: [id])
+  patient       Patient   @relation(fields: [patientId], references: [id])
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@map("form_responses")
+}
+
+// ============================================================
+// INSURANCE & BILLING
+// ============================================================
+
+model InsurancePolicy {
+  id           String   @id @default(uuid())
+  patientId    String   @map("patient_id")
+  provider     String
+  policyNumber String   @map("policy_number")
+  groupNumber  String?  @map("group_number")
+  holderName   String   @map("holder_name")
+  coverageType String   @map("coverage_type")
+  validFrom    DateTime @map("valid_from") @db.Date
+  validTo      DateTime @map("valid_to") @db.Date
+  copayAmount  Decimal? @map("copay_amount")
+  deductible   Decimal?
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  billingRecords BillingRecord[]
+
+  @@map("insurance_policies")
+}
+
+model BillingRecord {
+  id                String    @id @default(uuid())
+  patientId         String    @map("patient_id")
+  appointmentId     String?   @map("appointment_id")
+  insurancePolicyId String?   @map("insurance_policy_id")
+  amount            Decimal
+  patientOwes       Decimal   @map("patient_owes")
+  status            BillStatus @default(PENDING)
+  dueDate           DateTime?  @map("due_date") @db.Date
+  paidAt            DateTime?  @map("paid_at")
+  invoiceUrl        String?    @map("invoice_url")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  patient         Patient          @relation(fields: [patientId], references: [id])
+  appointment     Appointment?     @relation(fields: [appointmentId], references: [id])
+  insurancePolicy InsurancePolicy? @relation(fields: [insurancePolicyId], references: [id])
+
+  @@map("billing_records")
+}
+
+// ============================================================
+// VIDEO & SIGN LANGUAGE
+// ============================================================
+
+model VideoSession {
+  id            String        @id @default(uuid())
+  appointmentId String        @map("appointment_id")
+  provider      VideoProvider
+  roomUrl       String        @map("room_url")
+  startedAt     DateTime?     @map("started_at")
+  endedAt       DateTime?     @map("ended_at")
+  recordingUrl  String?       @map("recording_url")
+  appointment   Appointment   @relation(fields: [appointmentId], references: [id])
+  slSessions    SignLanguageSession[]
+
+  @@map("video_sessions")
+}
+
+model SignLanguageSession {
+  id                   String          @id @default(uuid())
+  videoSessionId       String          @map("video_session_id")
+  language             SlLanguage
+  modelVersion         String          @map("model_version")
+  status               SlSessionStatus @default(ACTIVE)
+  fullTranscript       String?         @map("full_transcript")
+  transcriptGeneratedAt DateTime?      @map("transcript_generated_at")
+  startedAt            DateTime        @map("started_at")
+  endedAt              DateTime?       @map("ended_at")
+  videoSession         VideoSession    @relation(fields: [videoSessionId], references: [id])
+  segments             SignLanguageSegment[]
+
+  @@map("sign_language_sessions")
+}
+
+model SignLanguageSegment {
+  id                   String              @id @default(uuid())
+  signLanguageSessionId String             @map("sign_language_session_id")
+  speaker              SlSpeaker
+  detectedText         String              @map("detected_text")
+  confidence           Decimal
+  timestampStartMs     Int                 @map("timestamp_start_ms")
+  timestampEndMs       Int                 @map("timestamp_end_ms")
+  rawPayload           Json?               @map("raw_payload")
+  session              SignLanguageSession @relation(fields: [signLanguageSessionId], references: [id], onDelete: Cascade)
+
+  @@map("sign_language_segments")
+}
